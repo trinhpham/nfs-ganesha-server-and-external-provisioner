@@ -17,9 +17,6 @@
 # Base image version
 ARG FEDORA_VERSION=34
 
-# Ganesha version (the tag name on Ganesha's repository)
-ARG GANESHA_VERSION=V3.4
-
 FROM golang:1.15 as go-builder
 
 RUN mkdir -p bin \
@@ -58,7 +55,10 @@ RUN dnf install -y \
 	patch \
 	userspace-rcu-devel
 
-RUN git clone --branch "${GANESHA_VERSION}" --recurse-submodules https://github.com/nfs-ganesha/nfs-ganesha
+# Ganesha version (the tag name on Ganesha's repository)
+ARG GANESHA_VERSION=V3.4
+
+RUN git clone --branch ${GANESHA_VERSION} --recurse-submodules https://github.com/nfs-ganesha/nfs-ganesha
 WORKDIR /nfs-ganesha
 RUN mkdir -p /usr/local \
     && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_CONFIG=vfs_only -DCMAKE_INSTALL_PREFIX=/usr/local src/ \
