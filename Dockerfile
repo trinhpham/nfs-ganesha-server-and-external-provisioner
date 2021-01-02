@@ -13,11 +13,26 @@
 # limitations under the License.
 
 # Modified from https://github.com/rootfs/nfs-ganesha-docker by Huamin Chen
+
+# Base image version
 ARG FEDORA_VERSION=34
 
-FROM fedora:${FEDORA_VERSION} AS build
+# Ganesha version (the tag name on Ganesha's repository)
+ARG GANESHA_VERSION=V3.4
 
-ARG binary=./bin/nfs-provisioner
+FROM golang:1.15 as go-builder
+
+RUN mkdir -p bin \
+	&& wget https://github.com/golang/dep/releases/download/v0.5.1/dep-linux-amd64 -O /usr/local/go/bin/dep \
+	&& chmod u+x /usr/local/go/bin/dep \
+	&& export PATH=$PWD/bin:$PATH
+
+# TODO get go modules instead of commiting vendor folder
+COPY . /go/src/nfs-provisioner
+WORKDIR /go/src/nfs-provisioner
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -a -ldflags '-extldflags "-static"' -o ./bin/nfs-provisioner ./cmd/nfs-provisioner
+
+FROM fedora:${FEDORA_VERSION} AS build
 
 # Build ganesha from source, install it to /usr/local and a use multi stage build to have a smaller image
 # Set NFS_V4_RECOV_ROOT to /export
@@ -43,9 +58,7 @@ RUN dnf install -y \
 	patch \
 	userspace-rcu-devel
 
-# Clone specific version of ganesha
-ARG GANESHA_VERSION=V3.4
-RUN git clone --branch ${GANESHA_VERSION} --recurse-submodules https://github.com/nfs-ganesha/nfs-ganesha
+RUN git clone --branch "${GANESHA_VERSION}" --recurse-submodules https://github.com/nfs-ganesha/nfs-ganesha
 WORKDIR /nfs-ganesha
 RUN mkdir -p /usr/local \
     && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_CONFIG=vfs_only -DCMAKE_INSTALL_PREFIX=/usr/local src/ \
@@ -82,7 +95,7 @@ RUN sed -i s/systemd// /etc/nsswitch.conf
 
 COPY --from=build /usr/local /usr/local/
 COPY --from=build /ganesha-extra /
-COPY ${binary} /nfs-provisioner
+COPY --from=go-builder /go/src/nfs-provisioner/bin/nfs-provisioner /nfs-provisioner
 
 # run ldconfig after libs have been copied
 RUN ldconfig
