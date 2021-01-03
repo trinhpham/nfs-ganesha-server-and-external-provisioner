@@ -56,7 +56,7 @@ RUN dnf install -y \
 	userspace-rcu-devel
 
 # Ganesha version (the tag name on Ganesha's repository)
-ARG GANESHA_VERSION=V3.4
+ARG GANESHA_VERSION=V2.8.4
 
 RUN git clone --branch ${GANESHA_VERSION} --recurse-submodules https://github.com/nfs-ganesha/nfs-ganesha
 WORKDIR /nfs-ganesha
